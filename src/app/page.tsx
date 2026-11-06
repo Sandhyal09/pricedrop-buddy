@@ -94,7 +94,7 @@ export default function Home() {
 /** The signature moment: a receipt whose price drops, then a refund stamp lands. */
 function ReceiptDemo() {
   return (
-    <figure className="relative mx-auto w-full max-w-sm -rotate-1">
+    <figure className="relative mx-auto mb-12 w-full max-w-sm -rotate-1">
       <div className="receipt px-6 pt-6 pb-8 font-receipt text-sm text-ink">
         <p className="text-center text-base font-semibold">TARGET</p>
         <p className="text-center text-xs text-ink-soft">Purchased 11/03/2026</p>
@@ -118,7 +118,7 @@ function ReceiptDemo() {
         </div>
       </div>
       <div
-        className="stamp absolute -right-3 bottom-10 grid h-28 w-28 place-items-center rounded-full border-4 border-refund bg-paper/90 text-center font-display font-extrabold text-refund"
+        className="stamp absolute -right-4 -bottom-16 grid h-28 w-28 place-items-center rounded-full border-4 border-refund bg-paper/90 text-center font-display font-extrabold text-refund"
         aria-hidden="true"
       >
         <span className="leading-none">
