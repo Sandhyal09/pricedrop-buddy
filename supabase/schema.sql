@@ -52,3 +52,7 @@ create policy "Users delete own purchases" on public.purchases
 
 -- Added for receipt scanning (safe if the column already exists).
 alter table public.purchases add column if not exists sku text;
+
+-- Added for reminder emails (safe if the columns already exist).
+alter table public.purchases add column if not exists reminded_3d boolean not null default false;
+alter table public.purchases add column if not exists reminded_1d boolean not null default false;

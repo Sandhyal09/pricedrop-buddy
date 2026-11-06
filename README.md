@@ -13,7 +13,9 @@ Stores like Target, Best Buy, Home Depot and Costco refund the difference when a
 - Store-specific "how to claim" tips
 - Each user sees only their own purchases (database row level security)
 
-**Coming next:** reminder emails, Proof Pack, Claim Success Board, Before-You-Buy checker.
+- **Reminder emails:** every morning, users get one email listing purchases whose claim window ends in 3 days, and again on the last day
+
+**Coming next:** Proof Pack, Claim Success Board, Before-You-Buy checker.
 
 ## Supported stores
 
@@ -63,7 +65,22 @@ Next.js · Supabase (database + login) · Tailwind CSS · Vercel (hosting). All 
 
 How receipts are read: [OCR.space](https://ocr.space) turns the photo into text, then simple rules in [`src/lib/receipt-parser.ts`](src/lib/receipt-parser.ts) find the store, date, order number and item lines (name, SKU, price), skipping totals, taxes and payment lines.
 
-### 4. Run it on your own computer (optional)
+### 4. Switch on reminder emails
+
+Reminders run every morning on GitHub Actions ([`.github/workflows/reminders.yml`](.github/workflows/reminders.yml)) and send through Gmail.
+
+1. In Supabase, run [`supabase/updates/003_reminders.sql`](supabase/updates/003_reminders.sql) once.
+2. Turn on 2-Step Verification for the Gmail account, then create an **App password** at myaccount.google.com/apppasswords.
+3. In GitHub, open **Settings → Secrets and variables → Actions** and add these repository secrets:
+   - `SUPABASE_URL`: your Supabase Project URL
+   - `SUPABASE_SECRET_KEY`: the **secret** key from Supabase → Project Settings → API Keys (never put this in Vercel or the code)
+   - `GMAIL_USER`: the Gmail address that sends the emails
+   - `GMAIL_APP_PASSWORD`: the 16-character app password
+4. Test it: **Actions → Daily reminders → Run workflow** with "Dry run" ticked shows the emails in the log without sending. Untick it to send for real.
+
+How it works: [`scripts/reminders-core.mts`](scripts/reminders-core.mts) picks purchases with 2–3 days left (first reminder) or 0–1 days left (last chance), groups them into one email per user, and [`scripts/send-reminders.mts`](scripts/send-reminders.mts) sends them and marks them as sent so nobody gets a reminder twice.
+
+### 5. Run it on your own computer (optional)
 
 ```bash
 npm install
