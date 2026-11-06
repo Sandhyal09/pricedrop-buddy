@@ -4,8 +4,8 @@ import { SetupNotice } from "@/components/notices";
 
 const STEPS = [
   {
-    title: "Add what you bought",
-    body: "Type in the item, store, price and date. Receipt scanning is coming next.",
+    title: "Scan your receipt",
+    body: "Snap the paper receipt or upload the order email. Check the items we found, then save.",
   },
   {
     title: "We count down the days",

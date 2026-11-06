@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { addPurchase } from "@/app/actions";
 import { STORES, todayString } from "@/lib/stores";
 import { Message, SetupNotice } from "@/components/notices";
@@ -14,7 +15,11 @@ export default async function AddPage(props: PageProps<"/add">) {
       <SetupNotice />
       <h1 className="font-display text-4xl font-extrabold tracking-tight">Add a purchase</h1>
       <p className="mt-2 text-ink-soft">
-        Copy the details from your receipt or order email.
+        Copy the details from your receipt or order email, or{" "}
+        <Link href="/scan" className="font-semibold text-ink underline">
+          scan the receipt instead
+        </Link>
+        .
       </p>
 
       <div className="mt-6">

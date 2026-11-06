@@ -21,8 +21,8 @@ export async function Header() {
               <Link href="/dashboard" className="font-semibold text-ink hover:underline">
                 My purchases
               </Link>
-              <Link href="/add" className="btn px-3 py-1.5 text-sm">
-                Add purchase
+              <Link href="/scan" className="btn px-3 py-1.5 text-sm">
+                Scan receipt
               </Link>
               <form action={signOut}>
                 <button className="font-semibold text-ink hover:underline">Log out</button>

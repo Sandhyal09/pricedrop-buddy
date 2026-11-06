@@ -91,15 +91,26 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
               : `${openCount} purchase${openCount === 1 ? "" : "s"} still inside the claim window.`}
           </p>
         </div>
-        <Link href="/add" className="btn">
-          Add purchase
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/scan" className="btn">
+            Scan a receipt
+          </Link>
+          <Link href="/add" className="btn-ghost">
+            Type it in
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6">
         <Message
           error={error ? `Could not load purchases: ${error.message}` : undefined}
-          info={added ? "Saved! We'll track the deadline for you." : undefined}
+          info={
+            added
+              ? Number(added) > 1
+                ? `Saved ${added} items. We'll track every deadline for you.`
+                : "Saved! We'll track the deadline for you."
+              : undefined
+          }
         />
       </div>
 
@@ -109,9 +120,14 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
           <p className="mt-2 text-ink-soft">
             Add something you bought in the last few weeks. Its refund window may still be open.
           </p>
-          <Link href="/add" className="btn mt-4">
-            Add a purchase
-          </Link>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Link href="/scan" className="btn">
+              Scan a receipt
+            </Link>
+            <Link href="/add" className="btn-ghost">
+              Type it in
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="space-y-6">

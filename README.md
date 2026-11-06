@@ -4,15 +4,16 @@
 
 Stores like Target, Best Buy, Home Depot and Costco refund the difference when a price drops soon after you buy, but only for 14–30 days. Most people forget. PriceDrop Buddy tracks every deadline and tells you how to claim.
 
-## What works today (Version 1, part 1)
+## What works today
 
 - Sign up and log in with email and password
-- Add a purchase: product, store, price paid, date, link, order number
+- **Scan a receipt:** take a photo (or upload a screenshot or PDF of an online order). The app reads the store, date, receipt number and every item, then shows a review screen where you fix mistakes and untick items before saving. Photos are never stored.
+- Or type a purchase in: product, store, price paid, date, link, order number
 - Dashboard with a countdown for every purchase: claim deadline, days left, red when 3 days or fewer
 - Store-specific "how to claim" tips
 - Each user sees only their own purchases (database row level security)
 
-**Coming next:** receipt scanning with a review screen, reminder emails, Proof Pack, Claim Success Board, Before-You-Buy checker.
+**Coming next:** reminder emails, Proof Pack, Claim Success Board, Before-You-Buy checker.
 
 ## Supported stores
 
@@ -53,10 +54,19 @@ Next.js · Supabase (database + login) · Tailwind CSS · Vercel (hosting). All 
 3. Click **Deploy**.
 4. Back in Supabase, open **Authentication → URL Configuration** and set **Site URL** to your Vercel address (for example `https://pricedrop-buddy.vercel.app`). Add `https://YOUR-ADDRESS.vercel.app/auth/callback` under **Redirect URLs**. This makes the sign-up confirmation email link work.
 
-### 3. Run it on your own computer (optional)
+### 3. Switch on receipt scanning
+
+1. Get a free API key at [ocr.space](https://ocr.space/ocrapi/freekey) (25,000 scans a month, 1 MB per file).
+2. In Vercel, open **Settings → Environment Variables** and add `OCR_SPACE_API_KEY` with your key. Don't add `NEXT_PUBLIC_` in front: this key must stay on the server.
+3. Redeploy (Deployments → ⋯ → Redeploy).
+4. In Supabase, run [`supabase/updates/002_add_sku.sql`](supabase/updates/002_add_sku.sql) in the SQL Editor once. It adds the item number (SKU) column.
+
+How receipts are read: [OCR.space](https://ocr.space) turns the photo into text, then simple rules in [`src/lib/receipt-parser.ts`](src/lib/receipt-parser.ts) find the store, date, order number and item lines (name, SKU, price), skipping totals, taxes and payment lines.
+
+### 4. Run it on your own computer (optional)
 
 ```bash
 npm install
-cp .env.example .env.local   # then paste your two values into .env.local
+cp .env.example .env.local   # then paste your values into .env.local
 npm run dev                  # open http://localhost:3000
 ```

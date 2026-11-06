@@ -7,7 +7,7 @@ import {
 } from "@/lib/supabase/config";
 
 // Pages only logged-in users may see.
-const PRIVATE_PATHS = ["/dashboard", "/add"];
+const PRIVATE_PATHS = ["/dashboard", "/add", "/scan"];
 
 // Runs before each page: keeps the login session fresh and sends
 // logged-out visitors from private pages to the login page.

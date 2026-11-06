@@ -12,6 +12,7 @@ create table if not exists public.purchases (
   product_name  text not null check (char_length(product_name) between 1 and 200),
   product_url   text,
   order_number  text,
+  sku           text,
   price_paid    numeric(10, 2) not null check (price_paid > 0),
   purchase_date date not null,
   window_days   integer not null check (window_days between 1 and 365),
@@ -48,3 +49,6 @@ create policy "Users update own purchases" on public.purchases
 drop policy if exists "Users delete own purchases" on public.purchases;
 create policy "Users delete own purchases" on public.purchases
   for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- Added for receipt scanning (safe if the column already exists).
+alter table public.purchases add column if not exists sku text;
