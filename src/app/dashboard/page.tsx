@@ -1,0 +1,179 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { deletePurchase } from "@/app/actions";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import {
+  claimDeadline,
+  daysLeft,
+  formatDate,
+  getStore,
+  urgency,
+  type Urgency,
+} from "@/lib/stores";
+import { Message, SetupNotice } from "@/components/notices";
+
+export const metadata: Metadata = { title: "My purchases – PriceDrop Buddy™" };
+
+type PurchaseRow = {
+  id: string;
+  store_id: string;
+  store_name: string;
+  product_name: string;
+  product_url: string | null;
+  order_number: string | null;
+  price_paid: number;
+  purchase_date: string;
+  window_days: number;
+};
+
+const BADGE: Record<Urgency, string> = {
+  open: "bg-teal-100 text-teal-900",
+  soon: "bg-red-100 text-red-800",
+  closed: "bg-neutral-200 text-neutral-600",
+};
+
+function badgeText(days: number): string {
+  if (days < 0) return "Claim window closed";
+  if (days === 0) return "Last day to claim!";
+  if (days === 1) return "1 day left";
+  return `${days} days left`;
+}
+
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+export default async function DashboardPage(props: PageProps<"/dashboard">) {
+  const { added } = await props.searchParams;
+
+  if (!isSupabaseConfigured) {
+    return <SetupNotice />;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("purchases")
+    .select(
+      "id, store_id, store_name, product_name, product_url, order_number, price_paid, purchase_date, window_days",
+    )
+    .order("purchase_date", { ascending: false });
+
+  const purchases = ((data ?? []) as PurchaseRow[])
+    .map((p) => {
+      const deadline = claimDeadline(p.purchase_date, p.window_days);
+      const days = daysLeft(deadline);
+      return { ...p, deadline, days, level: urgency(days) };
+    })
+    // Open deadlines first (soonest at the top), closed ones at the bottom.
+    .sort((a, b) => {
+      if ((a.days < 0) !== (b.days < 0)) return a.days < 0 ? 1 : -1;
+      return a.days < 0 ? b.days - a.days : a.days - b.days;
+    });
+
+  const openCount = purchases.filter((p) => p.days >= 0).length;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">My purchases</h1>
+          <p className="text-neutral-600">
+            {openCount === 0
+              ? "No claim windows open right now."
+              : `${openCount} purchase${openCount === 1 ? "" : "s"} still inside the claim window.`}
+          </p>
+        </div>
+        <Link href="/add" className="btn">
+          + Add a purchase
+        </Link>
+      </div>
+
+      <div className="mt-6">
+        <Message
+          error={error ? `Could not load purchases: ${error.message}` : undefined}
+          info={added ? "Saved! We'll track the deadline for you." : undefined}
+        />
+      </div>
+
+      {purchases.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
+          <p className="text-lg font-medium">Nothing here yet.</p>
+          <p className="mt-1 text-neutral-600">
+            Add your first purchase to start the countdown.
+          </p>
+          <Link href="/add" className="btn mt-4">
+            Add a purchase
+          </Link>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {purchases.map((p) => {
+            const store = getStore(p.store_id);
+            return (
+              <li
+                key={p.id}
+                className="rounded-xl border border-neutral-200 bg-white p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold">
+                      {p.product_url ? (
+                        <a
+                          href={p.product_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {p.product_name}
+                        </a>
+                      ) : (
+                        p.product_name
+                      )}
+                    </p>
+                    <p className="text-sm text-neutral-600">
+                      {p.store_name} · {money.format(Number(p.price_paid))} ·
+                      bought {formatDate(p.purchase_date)}
+                      {p.order_number ? ` · #${p.order_number}` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-semibold ${BADGE[p.level]}`}
+                  >
+                    {badgeText(p.days)}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <p className="text-neutral-700">
+                    {p.days >= 0 ? (
+                      <>
+                        Claim by <strong>{formatDate(p.deadline)}</strong>.{" "}
+                        {store.howToClaim}
+                      </>
+                    ) : (
+                      <>Window closed on {formatDate(p.deadline)}.</>
+                    )}
+                  </p>
+                  <form action={deletePurchase}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <button className="text-neutral-500 hover:text-red-700 hover:underline">
+                      Remove
+                    </button>
+                  </form>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
