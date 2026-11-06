@@ -1,38 +1,178 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f7f8f6;
-  --foreground: #1b1f1d;
+/* ---------- PriceDrop Buddy design tokens ----------
+   Clearance sticker yellow, ink blue, markdown red, refund green,
+   and white receipt paper. */
+@theme {
+  --color-sticker: #ffd60a;
+  --color-sticker-soft: #fff4b8;
+  --color-ink: #1d1a4f;
+  --color-ink-soft: #4b4874;
+  --color-markdown: #e4252f;
+  --color-markdown-soft: #fde4e5;
+  --color-refund: #0b7a4b;
+  --color-refund-soft: #dcf5e8;
+  --color-paper: #ffffff;
+  --color-ground: #eef0fb;
+
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-receipt: "IBM Plex Mono", ui-monospace, "Courier New", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-brand: #0f766e;
-  --color-brand-dark: #115e59;
-  --color-brand-soft: #ccfbf1;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
+html {
+  background: var(--color-ground);
+  color: var(--color-ink);
   font-family: var(--font-sans);
+  font-optical-sizing: auto;
 }
 
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* ---------- Form controls ---------- */
 .input {
-  @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft;
+  @apply w-full rounded-lg border-2 border-ink/25 bg-paper px-3 py-2.5 text-base text-ink outline-none;
 }
-
+.input:focus {
+  @apply border-ink;
+  box-shadow: 4px 4px 0 var(--color-sticker);
+}
 .label {
-  @apply mb-1 block text-sm font-medium text-neutral-700;
+  @apply mb-1 block text-sm font-semibold text-ink;
 }
-
 .btn {
-  @apply inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 font-semibold text-white hover:bg-brand-dark;
+  @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-ink px-4 py-2 font-bold text-paper transition-transform disabled:cursor-wait disabled:opacity-70;
+  box-shadow: 3px 3px 0 var(--color-sticker);
+}
+.btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--color-sticker);
+}
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-paper px-4 py-2 font-bold text-ink hover:bg-sticker-soft;
 }
 
-.btn-outline {
-  @apply inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-50;
+/* ---------- Receipt paper with a torn bottom edge ---------- */
+.receipt {
+  position: relative;
+  background: var(--color-paper);
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 1px 0 rgb(29 26 79 / 0.08), 0 12px 30px -18px rgb(29 26 79 / 0.45);
+  margin-bottom: 12px;
+}
+.receipt::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px;
+  height: 12px;
+  background:
+    linear-gradient(-45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x,
+    linear-gradient(45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x;
+}
+
+/* ---------- Price-tag badge (notched end with a string hole) ---------- */
+.tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem 0.3rem 1.5rem;
+  font-weight: 800;
+  white-space: nowrap;
+  clip-path: polygon(0.75rem 0, 100% 0, 100% 100%, 0.75rem 100%, 0 50%);
+  border-radius: 0 4px 4px 0;
+}
+.tag::before {
+  content: "";
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--color-ground);
+  transform: translateY(-50%);
+}
+.tag-open {
+  background: var(--color-sticker);
+  color: var(--color-ink);
+}
+.tag-soon {
+  background: var(--color-markdown);
+  color: var(--color-paper);
+}
+.tag-closed {
+  background: #d9d9e6;
+  color: var(--color-ink-soft);
+}
+
+/* ---------- The one orchestrated moment: the hero price drop ---------- */
+.strike {
+  position: relative;
+  display: inline-block;
+}
+.strike::after {
+  content: "";
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  top: 52%;
+  height: 3px;
+  background: var(--color-markdown);
+  transform: rotate(-8deg) scaleX(0);
+  transform-origin: left center;
+  animation: strike 450ms 500ms cubic-bezier(0.6, 0, 0.3, 1) forwards;
+}
+.new-price {
+  opacity: 0;
+  animation: rise 350ms 950ms ease-out forwards;
+}
+.stamp {
+  opacity: 0;
+  animation: stamp 380ms 1250ms cubic-bezier(0.3, 1.6, 0.5, 1) forwards;
+}
+@keyframes strike {
+  to {
+    transform: rotate(-8deg) scaleX(1);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(1.8);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-14deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strike::after,
+  .new-price,
+  .stamp {
+    animation: none;
+    opacity: 1;
+  }
+  .strike::after {
+    transform: rotate(-8deg) scaleX(1);
+  }
+  .stamp {
+    transform: rotate(-14deg);
+  }
 }

@@ -12,8 +12,8 @@ export default async function AddPage(props: PageProps<"/add">) {
   return (
     <div className="mx-auto max-w-xl">
       <SetupNotice />
-      <h1 className="text-2xl font-bold">Add a purchase</h1>
-      <p className="mt-1 text-neutral-600">
+      <h1 className="font-display text-4xl font-extrabold tracking-tight">Add a purchase</h1>
+      <p className="mt-2 text-ink-soft">
         Copy the details from your receipt or order email.
       </p>
 
@@ -23,7 +23,7 @@ export default async function AddPage(props: PageProps<"/add">) {
 
       <form
         action={addPurchase}
-        className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6"
+        className="receipt space-y-4 p-6"
       >
         <div>
           <label htmlFor="product_name" className="label">
@@ -55,8 +55,8 @@ export default async function AddPage(props: PageProps<"/add">) {
           </select>
         </div>
 
-        <fieldset className="rounded-lg border border-dashed border-neutral-300 p-4">
-          <legend className="px-1 text-sm text-neutral-600">
+        <fieldset className="rounded-lg border-2 border-dashed border-ink/25 p-4">
+          <legend className="px-1 text-sm text-ink-soft">
             Only if you chose &quot;Other store&quot;
           </legend>
           <div className="grid gap-4 sm:grid-cols-2">

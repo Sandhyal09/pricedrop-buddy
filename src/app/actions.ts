@@ -23,12 +23,33 @@ async function siteOrigin(): Promise<string> {
 
 // ---------- Accounts ----------
 
-export async function signUp(formData: FormData) {
+export type AuthState = { error?: string; message?: string; email?: string };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials"))
+    return "That email and password don't match. Check them, or create an account first.";
+  if (m.includes("email not confirmed"))
+    return "Confirm your email first: open the link we sent you, then log in.";
+  if (m.includes("already registered"))
+    return "This email already has an account. Switch to Log in.";
+  if (m.includes("rate limit"))
+    return "Too many emails sent in the last hour. Wait a while, then try again.";
+  return message;
+}
+
+export async function signUp(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
   const email = text(formData, "email");
   const password = text(formData, "password");
-  if (!email || password.length < 8) {
-    back("/login", "Enter an email and a password of at least 8 characters.");
-  }
+  if (!EMAIL_PATTERN.test(email))
+    return { error: "Enter a valid email address, like you@example.com.", email };
+  if (password.length < 8)
+    return { error: "Use a password with at least 8 characters.", email };
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -36,23 +57,32 @@ export async function signUp(formData: FormData) {
     password,
     options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
   });
-  if (error) back("/login", error.message);
+  if (error) return { error: friendlyAuthError(error.message), email };
 
-  // If email confirmation is on, there is no session yet.
-  if (!data.session) {
-    redirect(
-      `/login?message=${encodeURIComponent("Check your email and click the link to confirm your account.")}`,
-    );
-  }
+  // Supabase hides whether an email is already registered: an existing
+  // account comes back with no identities.
+  if (data.user && data.user.identities?.length === 0)
+    return { error: friendlyAuthError("already registered"), email };
+
+  // With email confirmation on, there is no session until the link is opened.
+  if (!data.session)
+    return {
+      message: `Almost done. We sent a confirmation link to ${email}. Open it to start tracking. Check your spam folder if it isn't there in a minute.`,
+    };
   redirect("/dashboard");
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
   const email = text(formData, "email");
   const password = text(formData, "password");
+  if (!EMAIL_PATTERN.test(email) || !password)
+    return { error: "Enter your email and password.", email };
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) back("/login", error.message);
+  if (error) return { error: friendlyAuthError(error.message), email };
   redirect("/dashboard");
 }
 

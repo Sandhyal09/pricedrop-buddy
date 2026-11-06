@@ -29,9 +29,9 @@ type PurchaseRow = {
 };
 
 const BADGE: Record<Urgency, string> = {
-  open: "bg-teal-100 text-teal-900",
-  soon: "bg-red-100 text-red-800",
-  closed: "bg-neutral-200 text-neutral-600",
+  open: "tag-open",
+  soon: "tag-soon",
+  closed: "tag-closed",
 };
 
 function badgeText(days: number): string {
@@ -84,15 +84,15 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">My purchases</h1>
-          <p className="text-neutral-600">
+          <h1 className="font-display text-4xl font-extrabold tracking-tight">My purchases</h1>
+          <p className="mt-1 text-ink-soft">
             {openCount === 0
               ? "No claim windows open right now."
               : `${openCount} purchase${openCount === 1 ? "" : "s"} still inside the claim window.`}
           </p>
         </div>
         <Link href="/add" className="btn">
-          + Add a purchase
+          Add purchase
         </Link>
       </div>
 
@@ -104,23 +104,23 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
       </div>
 
       {purchases.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-          <p className="text-lg font-medium">Nothing here yet.</p>
-          <p className="mt-1 text-neutral-600">
-            Add your first purchase to start the countdown.
+        <div className="receipt p-10 text-center">
+          <p className="font-display text-2xl font-extrabold">No purchases yet</p>
+          <p className="mt-2 text-ink-soft">
+            Add something you bought in the last few weeks. Its refund window may still be open.
           </p>
           <Link href="/add" className="btn mt-4">
             Add a purchase
           </Link>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-6">
           {purchases.map((p) => {
             const store = getStore(p.store_id);
             return (
               <li
                 key={p.id}
-                className="rounded-xl border border-neutral-200 bg-white p-4"
+                className="receipt p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -138,21 +138,21 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                         p.product_name
                       )}
                     </p>
-                    <p className="text-sm text-neutral-600">
+                    <p className="mt-1 font-receipt text-sm text-ink-soft">
                       {p.store_name} · {money.format(Number(p.price_paid))} ·
                       bought {formatDate(p.purchase_date)}
                       {p.order_number ? ` · #${p.order_number}` : ""}
                     </p>
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-sm font-semibold ${BADGE[p.level]}`}
+                    className={`tag text-sm ${BADGE[p.level]}`}
                   >
                     {badgeText(p.days)}
                   </span>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-                  <p className="text-neutral-700">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t-2 border-dashed border-ink/20 pt-3 text-sm">
+                  <p className="text-ink">
                     {p.days >= 0 ? (
                       <>
                         Claim by <strong>{formatDate(p.deadline)}</strong>.{" "}
@@ -164,7 +164,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                   </p>
                   <form action={deletePurchase}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="text-neutral-500 hover:text-red-700 hover:underline">
+                    <button className="font-semibold text-ink-soft hover:text-markdown hover:underline">
                       Remove
                     </button>
                   </form>
