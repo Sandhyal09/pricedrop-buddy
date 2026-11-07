@@ -25,7 +25,7 @@ PriceDrop Buddy keeps the receipts, watches the prices, counts down every deadli
 
 ## What it does
 
-| | |
+| Feature | What it does |
 | --- | --- |
 | **Scan any receipt** | Photograph a paper receipt or upload an order confirmation. OCR plus a rule-based parser pulls out the store, date, order number and every item, then a review screen lets you fix anything before saving. Photos are never stored. |
 | **Deadline countdown** | Each purchase gets its store's claim window, a days-left badge that turns red at 3 days, and store-specific steps to claim. |
