@@ -1,0 +1,26 @@
+# Test which stores' product pages can be price-checked from GitHub's servers.
+# GitHub → Actions → Price check test → Run workflow.
+
+name: Price check test
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "Comma-separated product links to test"
+        default: "https://www.target.com/p/apple-airpods-pro-2/-/A-85978622,https://www.bestbuy.com/site/apple-airpods-pro-2nd-generation-white/11112928.p,https://www.homedepot.com/p/DEWALT-20V-MAX-XR-Lithium-Ion-Cordless-Compact-1-2-in-Drill-Driver-Kit-20V-MAX-5-0Ah-Battery-and-Charger-DCD800P1/318875496,https://www.costco.com/kirkland-signature-paper-towels%2c-2-ply%2c-160-sheets%2c-12-individually-wrapped-rolls.product.100234271.html"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Try each store
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/price-probe.mts "${{ inputs.urls }}"
