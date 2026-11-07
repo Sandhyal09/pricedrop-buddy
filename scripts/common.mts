@@ -30,10 +30,23 @@ const mailer = dryRun
       auth: { user: gmailUser, pass: need("GMAIL_APP_PASSWORD") },
     });
 
-/** Confirmed email address for a user, or null. */
+/**
+ * Confirmed email address for a user, or null if they have none
+ * or turned emails off in their account.
+ */
 export async function emailFor(userId: string): Promise<string | null> {
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user?.email || !data.user.email_confirmed_at) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("email_alerts")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.email_alerts === false) {
+    console.log("Skipping a user who turned emails off.");
+    return null;
+  }
   return data.user.email;
 }
 

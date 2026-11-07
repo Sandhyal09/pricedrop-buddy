@@ -65,6 +65,21 @@ function ModeForm({ mode }: { mode: Mode }) {
           {state.error}
         </p>
       )}
+      {mode === "signup" && (
+        <div>
+          <label htmlFor="signup-name" className="label">
+            Your name
+          </label>
+          <input
+            id="signup-name"
+            name="full_name"
+            autoComplete="name"
+            maxLength={80}
+            defaultValue={state.fullName}
+            className="input"
+          />
+        </div>
+      )}
       <div>
         <label htmlFor={`${mode}-email`} className="label">
           Email

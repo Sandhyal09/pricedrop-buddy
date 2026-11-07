@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { STORES } from "@/lib/stores";
-import { SetupNotice } from "@/components/notices";
+import { Message, SetupNotice } from "@/components/notices";
 
 const STEPS = [
   {
@@ -17,12 +17,16 @@ const STEPS = [
   },
 ];
 
-export default function Home() {
+export default async function Home(props: PageProps<"/">) {
+  const { deleted } = await props.searchParams;
   const stores = STORES.filter((s) => s.windowDays !== null);
 
   return (
     <div>
       <SetupNotice />
+      {deleted && (
+        <Message info="Your account and all your purchases have been deleted. Thanks for trying PriceDrop Buddy." />
+      )}
 
       {/* Hero */}
       <section className="grid items-center gap-10 py-4 md:grid-cols-[1.1fr_0.9fr] md:py-10">

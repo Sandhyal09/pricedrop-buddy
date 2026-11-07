@@ -18,8 +18,10 @@ Stores like Target, Best Buy, Home Depot and Costco refund the difference when a
 - **Price checking:** every 6 hours, a polite robot checks prices where stores allow it (it reads only the standard machine-readable price, respects robots.txt and never works around blocks). A price drop triggers an instant email: "Claim $40 before Nov 17." For stores that block robots (Target, Best Buy and Home Depot in our tests), the dashboard and emails offer a one-tap check: open the product page, type the price you see, and the app works out what you can claim.
 - **Community Price Radar:** when anyone reports a lower price for an item (same store, same item number), or the price checker finds one, every other shopper who bought that item and is still inside their claim window gets an alert. Reports are anonymous, limited per day, and shown as "check it yourself" until you confirm.
 - **Money tracker:** mark a claim as refunded and see the total money you've got back
+- **Account page:** name, optional phone number, an on/off switch for all emails, change password
+- **Privacy built in:** a plain-English [privacy page](https://pricedrop-buddy.vercel.app/privacy), "Download my data" (one JSON file) and "Delete my account", which removes the user and everything they saved in one step
 
-**Coming next:** Proof Pack, Claim Success Board, Before-You-Buy checker.
+**Coming next:** Proof Pack, Claim Success Board.
 
 ## Supported stores
 
@@ -95,7 +97,11 @@ What we found when testing from GitHub's servers (Nov 2026): Costco.com allowed 
 
 Run [`supabase/updates/006_community_radar.sql`](supabase/updates/006_community_radar.sql) once. The hourly job ([`.github/workflows/radar.yml`](.github/workflows/radar.yml), logic in [`scripts/radar.mts`](scripts/radar.mts)) uses the same GitHub secrets. Items are matched by store and item number ([`src/lib/item-key.ts`](src/lib/item-key.ts)).
 
-### 7. Run it on your own computer (optional)
+### 7. Switch on accounts and account deletion
+
+Run [`supabase/updates/007_accounts.sql`](supabase/updates/007_accounts.sql) once. It adds the `profiles` table (filled in automatically for each new sign-up) and a `delete_my_account()` database function that can only delete the logged-in user. The last line should show `true`.
+
+### 8. Run it on your own computer (optional)
 
 ```bash
 npm install

@@ -3,6 +3,7 @@ import "@fontsource-variable/bricolage-grotesque";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
+import Link from "next/link";
 import { Header } from "@/components/header";
 
 export const metadata: Metadata = {
@@ -23,6 +24,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <p>© 2026 PriceDrop Buddy™. All rights reserved.</p>
           <p className="mt-1">
             Store policies change. Check with the store before you claim.
+          </p>
+          <p className="mt-3">
+            <Link href="/privacy" className="font-semibold text-ink underline">
+              Privacy
+            </Link>
           </p>
         </footer>
       </body>

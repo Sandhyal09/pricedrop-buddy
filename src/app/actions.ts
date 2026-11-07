@@ -24,7 +24,7 @@ async function siteOrigin(): Promise<string> {
 
 // ---------- Accounts ----------
 
-export type AuthState = { error?: string; message?: string; email?: string };
+export type AuthState = { error?: string; message?: string; email?: string; fullName?: string };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,23 +47,27 @@ export async function signUp(
 ): Promise<AuthState> {
   const email = text(formData, "email");
   const password = text(formData, "password");
+  const fullName = text(formData, "full_name").slice(0, 80);
   if (!EMAIL_PATTERN.test(email))
-    return { error: "Enter a valid email address, like you@example.com.", email };
+    return { error: "Enter a valid email address, like you@example.com.", email, fullName };
   if (password.length < 8)
-    return { error: "Use a password with at least 8 characters.", email };
+    return { error: "Use a password with at least 8 characters.", email, fullName };
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${await siteOrigin()}/auth/callback` },
+    options: {
+      emailRedirectTo: `${await siteOrigin()}/auth/callback`,
+      data: fullName ? { full_name: fullName } : undefined,
+    },
   });
-  if (error) return { error: friendlyAuthError(error.message), email };
+  if (error) return { error: friendlyAuthError(error.message), email, fullName };
 
   // Supabase hides whether an email is already registered: an existing
   // account comes back with no identities.
   if (data.user && data.user.identities?.length === 0)
-    return { error: friendlyAuthError("already registered"), email };
+    return { error: friendlyAuthError("already registered"), email, fullName };
 
   // With email confirmation on, there is no session until the link is opened.
   if (!data.session)
