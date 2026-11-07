@@ -34,82 +34,85 @@ html {
   outline-offset: 2px;
 }
 
-/* ---------- Form controls ---------- */
-.input {
-  @apply w-full rounded-lg border-2 border-ink/25 bg-paper px-3 py-2.5 text-base text-ink outline-none;
-}
-.input:focus {
-  @apply border-ink;
-  box-shadow: 4px 4px 0 var(--color-sticker);
-}
-.label {
-  @apply mb-1 block text-sm font-semibold text-ink;
-}
-.btn {
-  @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-ink px-4 py-2 font-bold text-paper transition-transform disabled:cursor-wait disabled:opacity-70;
-  box-shadow: 3px 3px 0 var(--color-sticker);
-}
-.btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--color-sticker);
-}
-.btn-ghost {
-  @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-paper px-4 py-2 font-bold text-ink hover:bg-sticker-soft;
-}
+/* Component classes live in a layer, so utility classes can override them. */
+@layer components {
+  /* ---------- Form controls ---------- */
+  .input {
+    @apply w-full rounded-lg border-2 border-ink/25 bg-paper px-3 py-2.5 text-base text-ink outline-none;
+  }
+  .input:focus {
+    @apply border-ink;
+    box-shadow: 4px 4px 0 var(--color-sticker);
+  }
+  .label {
+    @apply mb-1 block text-sm font-semibold text-ink;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-ink px-4 py-2 font-bold text-paper transition-transform disabled:cursor-wait disabled:opacity-70;
+    box-shadow: 3px 3px 0 var(--color-sticker);
+  }
+  .btn:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--color-sticker);
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg border-2 border-ink bg-paper px-4 py-2 font-bold text-ink hover:bg-sticker-soft;
+  }
 
-/* ---------- Receipt paper with a torn bottom edge ---------- */
-.receipt {
-  position: relative;
-  background: var(--color-paper);
-  border-radius: 6px 6px 0 0;
-  box-shadow: 0 1px 0 rgb(29 26 79 / 0.08), 0 12px 30px -18px rgb(29 26 79 / 0.45);
-  margin-bottom: 12px;
-}
-.receipt::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -12px;
-  height: 12px;
-  background:
-    linear-gradient(-45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x,
-    linear-gradient(45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x;
-}
+  /* ---------- Receipt paper with a torn bottom edge ---------- */
+  .receipt {
+    position: relative;
+    background: var(--color-paper);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 1px 0 rgb(29 26 79 / 0.08), 0 12px 30px -18px rgb(29 26 79 / 0.45);
+    margin-bottom: 12px;
+  }
+  .receipt::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -12px;
+    height: 12px;
+    background:
+      linear-gradient(-45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x,
+      linear-gradient(45deg, transparent 8px, var(--color-paper) 0) 0 0 / 16px 12px repeat-x;
+  }
 
-/* ---------- Price-tag badge (notched end with a string hole) ---------- */
-.tag {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.85rem 0.3rem 1.5rem;
-  font-weight: 800;
-  white-space: nowrap;
-  clip-path: polygon(0.75rem 0, 100% 0, 100% 100%, 0.75rem 100%, 0 50%);
-  border-radius: 0 4px 4px 0;
-}
-.tag::before {
-  content: "";
-  position: absolute;
-  left: 0.65rem;
-  top: 50%;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 999px;
-  background: var(--color-ground);
-  transform: translateY(-50%);
-}
-.tag-open {
-  background: var(--color-sticker);
-  color: var(--color-ink);
-}
-.tag-soon {
-  background: var(--color-markdown);
-  color: var(--color-paper);
-}
-.tag-closed {
-  background: #d9d9e6;
-  color: var(--color-ink-soft);
+  /* ---------- Price-tag badge (notched end with a string hole) ---------- */
+  .tag {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.85rem 0.3rem 1.5rem;
+    font-weight: 800;
+    white-space: nowrap;
+    clip-path: polygon(0.75rem 0, 100% 0, 100% 100%, 0.75rem 100%, 0 50%);
+    border-radius: 0 4px 4px 0;
+  }
+  .tag::before {
+    content: "";
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--color-ground);
+    transform: translateY(-50%);
+  }
+  .tag-open {
+    background: var(--color-sticker);
+    color: var(--color-ink);
+  }
+  .tag-soon {
+    background: var(--color-markdown);
+    color: var(--color-paper);
+  }
+  .tag-closed {
+    background: #d9d9e6;
+    color: var(--color-ink-soft);
+  }
 }
 
 /* ---------- The one orchestrated moment: the hero price drop ---------- */

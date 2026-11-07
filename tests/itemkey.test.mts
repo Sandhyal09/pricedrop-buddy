@@ -1,0 +1,22 @@
+import { itemKey, keyFromUrl } from "../src/lib/item-key.ts";
+let fail = 0;
+const check = (label: string, got: unknown, want: unknown) => {
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) fail++;
+  console.log(ok ? "PASS" : "FAIL", label, ok ? "" : `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+};
+check("target slug", keyFromUrl("target", "https://www.target.com/p/apple-airpods-pro-2/-/A-85978622"), "target:85978622");
+check("target short + query", keyFromUrl("target", "https://target.com/p/-/A-85978622?TCID=OGS"), "target:85978622");
+check("bestbuy .p", keyFromUrl("bestbuy", "https://www.bestbuy.com/site/apple-airpods-pro-2nd-generation-white/11112928.p"), "bestbuy:11112928");
+check("bestbuy skuId", keyFromUrl("bestbuy", "https://www.bestbuy.com/site/x/6447382.p?skuId=6447382"), "bestbuy:6447382");
+check("bestbuy /sku/", keyFromUrl("bestbuy", "https://bestbuy.com/product/apple-airpods/JJ8ZHSV2V5/sku/10779643"), "bestbuy:10779643");
+check("homedepot", keyFromUrl("homedepot", "https://www.homedepot.com/p/DEWALT-20V-MAX-Drill-DCD800P1/318875496"), "homedepot:318875496");
+check("costco encoded", keyFromUrl("costco", "https://www.costco.com/kirkland-signature-paper-towels%2c-2-ply.product.100234271.html"), "costco:100234271");
+check("costco new style", keyFromUrl("costco", "https://www.costco.com/p/-/kirkland-signature-paper-towels/100234271"), "costco:100234271");
+check("other store page", keyFromUrl("other", "https://Shop.Example.com/item/42/"), "web:shop.example.com/item/42");
+check("bad url", keyFromUrl("target", "not a url"), null);
+check("receipt sku target", itemKey("target", null, "212-08-1234"), "target:sku:212081234");
+check("receipt sku bestbuy matches link", itemKey("bestbuy", null, "6447382"), "bestbuy:6447382");
+check("link preferred over sku", itemKey("costco", "https://www.costco.com/x.product.100234271.html", "512599"), "costco:100234271");
+check("too short sku", itemKey("costco", null, "12"), null);
+process.exit(fail);

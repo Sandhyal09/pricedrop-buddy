@@ -271,7 +271,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                           name="amount"
                           inputMode="decimal"
                           defaultValue={p.drop.toFixed(2)}
-                          className="input w-32 font-receipt"
+                          className="input w-40 font-receipt"
                         />
                       </div>
                       <button className="btn">I got my money back</button>
@@ -325,9 +325,9 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                           name="price"
                           inputMode="decimal"
                           placeholder="Today's price"
-                          className="input w-32 py-1.5 font-receipt text-sm"
+                          className="input w-40 py-1.5 font-receipt text-sm"
                         />
-                        <button className="btn px-3 py-1.5 text-sm">Save price</button>
+                        <button className="btn px-3 py-1.5 text-sm whitespace-nowrap">Save price</button>
                       </form>
                       <form action={markNoDrop}>
                         <input type="hidden" name="id" value={p.id} />

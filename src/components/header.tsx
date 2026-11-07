@@ -11,11 +11,14 @@ export async function Header() {
       <nav className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 text-ink" aria-label="PriceDrop Buddy home">
           <Logo />
-          <span className="font-display text-xl font-extrabold tracking-tight">
+          {/* On phones, logged-in users see just the logo so the menu fits. */}
+          <span
+            className={`font-display text-xl font-extrabold tracking-tight whitespace-nowrap ${user ? "max-sm:sr-only" : ""}`}
+          >
             PriceDrop Buddy<span className="align-super text-xs">™</span>
           </span>
         </Link>
-        <div className="flex items-center gap-2 text-sm sm:gap-4">
+        <div className="flex items-center gap-3 text-sm whitespace-nowrap sm:gap-4">
           {user ? (
             <>
               <Link href="/dashboard" className="font-semibold text-ink hover:underline">

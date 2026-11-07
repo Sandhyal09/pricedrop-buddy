@@ -1,47 +1,137 @@
+<div align="center">
+
+<img src="docs/logo.svg" width="64" height="64" alt="">
+
 # PriceDrop Buddy™
 
-**Scan any receipt from any big store and never miss a price-drop refund deadline, for free.**
+**Bought something and the price dropped? Get the difference back before the deadline.**
 
-Stores like Target, Best Buy, Home Depot and Costco refund the difference when a price drops soon after you buy, but only for 14–30 days. Most people forget. PriceDrop Buddy tracks every deadline and tells you how to claim.
+[**Try it live →**](https://pricedrop-buddy.vercel.app) &nbsp;·&nbsp; [How it works](#how-it-works) &nbsp;·&nbsp; [Engineering notes](#engineering-notes) &nbsp;·&nbsp; [Run it yourself](#run-it-yourself)
 
-## What works today
+[![Checks](https://github.com/Sandhyal09/pricedrop-buddy/actions/workflows/ci.yml/badge.svg)](https://github.com/Sandhyal09/pricedrop-buddy/actions/workflows/ci.yml)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-1d1a4f)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-0b7a4b)
+![Cost](https://img.shields.io/badge/running%20cost-%240%2Fmonth-ffd60a)
 
-- Sign up and log in with email and password
-- **Scan a receipt:** take a photo (or upload a screenshot or PDF of an online order). The app reads the store, date, receipt number and every item, then shows a review screen where you fix mistakes and untick items before saving. Photos are never stored.
-- Or type a purchase in: product, store, price paid, date, link, order number
-- Dashboard with a countdown for every purchase: claim deadline, days left, red when 3 days or fewer
-- Store-specific "how to claim" tips
-- Each user sees only their own purchases (database row level security)
+<img src="docs/demo.gif" width="860" alt="Walkthrough: the home page, a dashboard with a $70 refund ready to claim and a Price Radar alert, then the account settings">
 
-- **Reminder emails:** every morning, users get one email listing purchases whose claim window ends in 3 days, and again on the last day
+</div>
 
-- **Price checking:** every 6 hours, a polite robot checks prices where stores allow it (it reads only the standard machine-readable price, respects robots.txt and never works around blocks). A price drop triggers an instant email: "Claim $40 before Nov 17." For stores that block robots (Target, Best Buy and Home Depot in our tests), the dashboard and emails offer a one-tap check: open the product page, type the price you see, and the app works out what you can claim.
-- **Community Price Radar:** when anyone reports a lower price for an item (same store, same item number), or the price checker finds one, every other shopper who bought that item and is still inside their claim window gets an alert. Reports are anonymous, limited per day, and shown as "check it yourself" until you confirm.
-- **Money tracker:** mark a claim as refunded and see the total money you've got back
-- **Account page:** name, optional phone number, an on/off switch for all emails, change password
-- **Privacy built in:** a plain-English [privacy page](https://pricedrop-buddy.vercel.app/privacy), "Download my data" (one JSON file) and "Delete my account", which removes the user and everything they saved in one step
+## The problem
 
-**Coming next:** Proof Pack, Claim Success Board.
+Target, Best Buy, Home Depot and Costco will refund the difference if a price falls soon after you buy. But you only get **14 to 30 days**, every store has different rules, and nobody re-checks prices on things they already bought. The money is simply left on the table.
+
+PriceDrop Buddy keeps the receipts, watches the prices, counts down every deadline and tells you exactly how to claim.
+
+## What it does
+
+| | |
+| --- | --- |
+| **Scan any receipt** | Photograph a paper receipt or upload an order confirmation. OCR plus a rule-based parser pulls out the store, date, order number and every item, then a review screen lets you fix anything before saving. Photos are never stored. |
+| **Deadline countdown** | Each purchase gets its store's claim window, a days-left badge that turns red at 3 days, and store-specific steps to claim. |
+| **Automatic price checks** | Every 6 hours a polite bot reads the price where stores allow it. A drop triggers an email: *"Claim $70 before Nov 13."* |
+| **One-tap checks** | Where stores block bots, one button opens the product page; type the price you see and the app works out what you can claim. |
+| **Community Price Radar** | When one shopper (or the bot) sees a lower price, everyone else who bought the same item and is still inside the window gets an alert. Anonymous, rate-limited, and always "check it yourself". |
+| **Reminder emails** | One email per person, 3 days and 1 day before a window closes. Never sent twice. |
+| **Money tracker** | Mark a claim as refunded and watch the total you've got back grow. |
+| **Your account, your data** | Settings with a side menu, an email on/off switch, a plain-English [privacy page](https://pricedrop-buddy.vercel.app/privacy), "Download my data" and one-step account deletion. |
+
+<table>
+  <tr>
+    <td width="66%"><img src="docs/screenshots/dashboard.png" alt="Dashboard showing $70 ready to claim on a TV, $110 already recovered, and a Price Radar alert on an air fryer"></td>
+    <td width="34%"><img src="docs/screenshots/mobile-dashboard.png" alt="The same dashboard on a phone"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/account.png" alt="Account settings with a side menu: details, email alerts, password, data, delete account"></td>
+    <td><img src="docs/screenshots/alerts.png" alt="Email alerts panel with an on/off switch"></td>
+  </tr>
+</table>
+
+<sub>Screenshots use made-up sample data.</sub>
+
+## How it works
+
+```mermaid
+flowchart LR
+    shopper["Shopper<br/>(phone or laptop)"] --> site["Next.js website<br/>on Vercel"]
+    site -- "receipt photo" --> ocr["OCR.space<br/>(text from image)"]
+    site <-- "queries limited by<br/>row level security" --> db[("Supabase<br/>Postgres + Auth")]
+
+    subgraph jobs["GitHub Actions (scheduled)"]
+        remind["Reminders<br/>daily"]
+        prices["Price checks<br/>every 6 h"]
+        radar["Price Radar<br/>hourly"]
+    end
+
+    jobs <-- "server-only key" --> db
+    prices -- "public price data,<br/>robots.txt respected" --> stores["Store product pages"]
+    jobs -- "SMTP" --> gmail["Gmail"] --> inbox["Shopper's inbox"]
+```
+
+- **Website** ([`src/app`](src/app)): server-rendered pages and Server Actions. Every database call runs as the logged-in user, so Postgres row level security decides what they can see.
+- **Scheduled jobs** ([`scripts`](scripts), [`.github/workflows`](.github/workflows)): small TypeScript programs that run on GitHub's servers for free. They are the only code holding the database's secret key.
+- **Database** ([`supabase/schema.sql`](supabase/schema.sql)): purchases, price history, shared price reports and profiles, each locked down with policies and explicit grants.
+
+## Engineering notes
+
+**I measured before I built.** The first plan was "check every store's price automatically". So I ran a probe from GitHub's servers against real product pages: Costco returned a price, Target served a robot check, Home Depot returned 403 and Best Buy timed out. Rather than scraping around those blocks, the bot only reads the standard machine-readable price (schema.org JSON-LD and meta tags), obeys `robots.txt`, identifies itself honestly, and backs off from blocked sites. The product then grew two features to cover the gap: one-tap checks and the crowd-powered Price Radar.
+
+**Matching the same product across strangers.** Price Radar needs to know that two shoppers bought the same thing, from messy inputs. [`src/lib/item-key.ts`](src/lib/item-key.ts) turns product links and receipt SKUs into one stable key per store (Target TCIN, Best Buy SKU, Home Depot's 9-digit ID, Costco item number), and an SQL backfill applied the same rules to existing rows.
+
+**Shared data, private people.** Price reports are readable by every user, but a column-level grant hides who reported them. Inserts must come from the logged-in user, are capped at 30 a day, and prices under 20% of what was paid are rejected as typos. Each alert remembers the price it announced, so nobody is emailed twice about the same drop.
+
+**Security by default.** Row level security is on for every table and new tables aren't exposed automatically. The browser only ever holds the publishable key. Account deletion is a `security definer` function that can only delete `auth.uid()`, and purchases and price history cascade with it.
+
+**Dates are harder than they look.** Claim windows are counted in calendar days in US Eastern time, with tests across month ends and the daylight-saving change.
+
+**$0 to run.** Vercel, Supabase, GitHub Actions, OCR.space and Gmail are all used within their free tiers.
+
+## Tests
+
+```bash
+npm test          # about 80 checks: deadlines, receipt parser, price reader, item keys, reminders, Radar matching
+npm run lint
+npm run typecheck
+```
+
+The [Checks workflow](.github/workflows/ci.yml) runs all of these plus a production build on every push.
+
+## Project structure
+
+```
+src/app/            pages, Server Actions, account settings, privacy page
+src/lib/            store rules, receipt parser, price reader, item keys
+src/components/     header, forms, receipt scanner
+scripts/            scheduled jobs: reminders, price checks, Price Radar
+supabase/           full schema plus numbered updates
+tests/              unit tests (npm test)
+.github/workflows/  scheduled jobs and the Checks workflow
+```
+
+## Roadmap
+
+- **Proof Pack:** a one-page PDF with the receipt line, today's price and the store's policy, ready to show at the counter.
+- **Smarter receipt reading:** use an AI model to read receipts the rule-based parser misses.
+- **Claim Success Board:** which stores actually paid out, and how fast.
 
 ## Supported stores
 
-| Store | Days to claim a price drop |
+| Store | Days to claim a lower price |
 | --- | --- |
 | Best Buy | 15 |
 | Target | 14 |
 | Home Depot | 30 |
 | Costco | 30 |
-| Other | You enter it |
+| Any other store | You enter it |
 
-Store rules live in one file: [`src/lib/stores.ts`](src/lib/stores.ts). Policies change, so recheck them every few months.
+Store rules live in one file: [`src/lib/stores.ts`](src/lib/stores.ts). Policies change, so always check with the store before claiming.
 
-## Built with
+## Run it yourself
 
-Next.js · Supabase (database + login) · Tailwind CSS · Vercel (hosting). All on free plans.
+Everything runs on free plans. The guide below assumes no prior experience.
 
----
-
-## Setup guide (beginner friendly)
+<details>
+<summary><strong>Step-by-step setup guide</strong></summary>
 
 ### 1. Connect the database
 
@@ -108,3 +198,8 @@ npm install
 cp .env.example .env.local   # then paste your values into .env.local
 npm run dev                  # open http://localhost:3000
 ```
+</details>
+
+---
+
+Built by [Sandhya](https://github.com/Sandhyal09). PriceDrop Buddy isn't affiliated with any store; store names belong to their owners.
