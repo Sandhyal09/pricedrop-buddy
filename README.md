@@ -69,7 +69,7 @@ How receipts are read: [OCR.space](https://ocr.space) turns the photo into text,
 
 Reminders run every morning on GitHub Actions ([`.github/workflows/reminders.yml`](.github/workflows/reminders.yml)) and send through Gmail.
 
-1. In Supabase, run [`supabase/updates/003_reminders.sql`](supabase/updates/003_reminders.sql) once.
+1. In Supabase, run [`supabase/updates/003_reminders.sql`](supabase/updates/003_reminders.sql) and [`supabase/updates/004_reminder_access.sql`](supabase/updates/004_reminder_access.sql) once.
 2. Turn on 2-Step Verification for the Gmail account, then create an **App password** at myaccount.google.com/apppasswords.
 3. In GitHub, open **Settings → Secrets and variables → Actions** and add these repository secrets:
    - `SUPABASE_URL`: your Supabase Project URL

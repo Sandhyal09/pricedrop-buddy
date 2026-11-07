@@ -28,6 +28,8 @@ create index if not exists purchases_user_id_idx on public.purchases (user_id);
 -- Logged-out visitors get no access at all.
 revoke all on public.purchases from anon;
 grant select, insert, update, delete on public.purchases to authenticated;
+-- The daily reminder program (secret key) reads purchases and marks reminders sent.
+grant select, update on public.purchases to service_role;
 
 -- Row level security: each person can only see and change their own purchases.
 alter table public.purchases enable row level security;
