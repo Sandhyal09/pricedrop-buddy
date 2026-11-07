@@ -11,7 +11,7 @@ function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-export async function saveProfile(
+export async function saveDetails(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -29,13 +29,36 @@ export async function saveProfile(
     id: user.id,
     full_name: fullName || null,
     phone,
-    email_alerts: formData.get("email_alerts") === "on",
     updated_at: new Date().toISOString(),
   });
   if (error) return { error: `Could not save: ${error.message}` };
 
-  revalidatePath("/", "layout");
-  return { message: "Saved." };
+  revalidatePath("/account", "layout");
+  return { message: "Your details are saved." };
+}
+
+export async function saveAlerts(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await getUser();
+  if (!user) redirect("/login");
+
+  const on = formData.get("email_alerts") === "on";
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").upsert({
+    id: user.id,
+    email_alerts: on,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: `Could not save: ${error.message}` };
+
+  revalidatePath("/account", "layout");
+  return {
+    message: on
+      ? "Emails are on. We'll write when a deadline is close or a price drops."
+      : "Emails are off. Check your dashboard for deadlines.",
+  };
 }
 
 export async function changePassword(

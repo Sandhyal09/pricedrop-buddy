@@ -4,7 +4,8 @@ import { useActionState, useState } from "react";
 import {
   changePassword,
   deleteAccount,
-  saveProfile,
+  saveAlerts,
+  saveDetails,
   type FormState,
 } from "@/app/account/actions";
 
@@ -30,18 +31,18 @@ function Feedback({ state }: { state: FormState }) {
   return null;
 }
 
-export function ProfileForm({
+export function DetailsForm({
   fullName,
+  email,
   phone,
-  emailAlerts,
 }: {
   fullName: string;
+  email: string;
   phone: string;
-  emailAlerts: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveProfile, {});
+  const [state, action, pending] = useActionState(saveDetails, {});
   return (
-    <form action={action} noValidate className="space-y-4">
+    <form action={action} noValidate className="space-y-5">
       <Feedback state={state} />
       <div>
         <label htmlFor="full_name" className="label">
@@ -57,6 +58,21 @@ export function ProfileForm({
           className="input"
         />
         <p className="mt-1 text-sm text-ink-soft">Used to greet you. Other shoppers never see it.</p>
+      </div>
+      <div>
+        <label htmlFor="email" className="label">
+          Email
+        </label>
+        <input
+          id="email"
+          value={email}
+          readOnly
+          aria-describedby="email-hint"
+          className="input cursor-not-allowed bg-ground text-ink-soft"
+        />
+        <p id="email-hint" className="mt-1 text-sm text-ink-soft">
+          This is how you log in, so it can&apos;t be changed here.
+        </p>
       </div>
       <div>
         <label htmlFor="phone" className="label">
@@ -75,20 +91,54 @@ export function ProfileForm({
           Only you can see it. We don&apos;t send texts yet, and we never share it.
         </p>
       </div>
-      <label className="flex items-start gap-3 rounded-lg border-2 border-ink/15 bg-paper p-3">
+      <button className="btn px-5 py-2.5" disabled={pending}>
+        {pending ? "Saving…" : "Save details"}
+      </button>
+    </form>
+  );
+}
+
+export function AlertsForm({ emailAlerts }: { emailAlerts: boolean }) {
+  const [state, action, pending] = useActionState(saveAlerts, {});
+  const [on, setOn] = useState(emailAlerts);
+  return (
+    <form action={action} className="space-y-5">
+      <Feedback state={state} />
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border-2 border-ink bg-paper p-4">
+        <span>
+          <span className="block font-bold">Email alerts</span>
+          <span className="block text-sm text-ink-soft">
+            {on ? "On: you'll hear from us when it matters." : "Off: we won't email you."}
+          </span>
+        </span>
         <input
           type="checkbox"
           name="email_alerts"
-          defaultChecked={emailAlerts}
-          className="mt-1 size-5 accent-ink"
+          checked={on}
+          onChange={(e) => setOn(e.target.checked)}
+          className="peer sr-only"
         />
-        <span>
-          <span className="font-semibold">Email me</span> deadline reminders, price drops and
-          Price Radar alerts
-        </span>
+        <span
+          aria-hidden="true"
+          className="relative h-8 w-14 shrink-0 rounded-full border-2 border-ink bg-ground transition-colors peer-checked:bg-refund peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink after:absolute after:top-0.5 after:left-0.5 after:size-6 after:rounded-full after:border-2 after:border-ink after:bg-paper after:transition-transform peer-checked:after:translate-x-6"
+        />
       </label>
+      <ul className="space-y-2 text-sm">
+        {[
+          "A reminder 3 days and 1 day before a refund window closes",
+          "An email when our price checker sees a lower price",
+          "Price Radar alerts when another shopper spots a lower price",
+        ].map((item) => (
+          <li key={item} className={`flex gap-2 ${on ? "" : "text-ink-soft line-through"}`}>
+            <span aria-hidden="true" className={on ? "text-refund" : ""}>
+              {on ? "✓" : "–"}
+            </span>
+            {item}
+          </li>
+        ))}
+      </ul>
       <button className="btn px-5 py-2.5" disabled={pending}>
-        {pending ? "Saving…" : "Save changes"}
+        {pending ? "Saving…" : "Save email settings"}
       </button>
     </form>
   );
