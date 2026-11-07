@@ -15,6 +15,9 @@ Stores like Target, Best Buy, Home Depot and Costco refund the difference when a
 
 - **Reminder emails:** every morning, users get one email listing purchases whose claim window ends in 3 days, and again on the last day
 
+- **Price checking:** every 6 hours, a polite robot checks prices where stores allow it (it reads only the standard machine-readable price, respects robots.txt and never works around blocks). A price drop triggers an instant email: "Claim $40 before Nov 17." For stores that block robots (Target, Best Buy and Home Depot in our tests), the dashboard and emails offer a one-tap check: open the product page, type the price you see, and the app works out what you can claim.
+- **Money tracker:** mark a claim as refunded and see the total money you've got back
+
 **Coming next:** Proof Pack, Claim Success Board, Before-You-Buy checker.
 
 ## Supported stores
@@ -80,7 +83,14 @@ Reminders run every morning on GitHub Actions ([`.github/workflows/reminders.yml
 
 How it works: [`scripts/reminders-core.mts`](scripts/reminders-core.mts) picks purchases with 2–3 days left (first reminder) or 0–1 days left (last chance), groups them into one email per user, and [`scripts/send-reminders.mts`](scripts/send-reminders.mts) sends them and marks them as sent so nobody gets a reminder twice.
 
-### 5. Run it on your own computer (optional)
+### 5. Switch on price checking
+
+1. In Supabase, run [`supabase/updates/005_price_checks.sql`](supabase/updates/005_price_checks.sql) once.
+2. It uses the same GitHub secrets as reminders. Test it: **Actions → Price checks → Run workflow** (dry run first).
+
+What we found when testing from GitHub's servers (Nov 2026): Costco.com allowed it; Target showed a robot check, Home Depot returned 403, and Best Buy timed out. Run **Actions → Price check test** to test again.
+
+### 6. Run it on your own computer (optional)
 
 ```bash
 npm install

@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { deletePurchase } from "@/app/actions";
+import {
+  markClaimed,
+  markNoDrop,
+  reportPrice,
+  setProductUrl,
+} from "@/app/purchase-actions";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import {
@@ -23,9 +29,16 @@ type PurchaseRow = {
   product_name: string;
   product_url: string | null;
   order_number: string | null;
+  sku: string | null;
   price_paid: number;
   purchase_date: string;
   window_days: number;
+  status: string;
+  last_price: number | null;
+  last_checked_at: string | null;
+  last_check_status: string | null;
+  last_check_source: string | null;
+  claimed_amount: number | null;
 };
 
 const BADGE: Record<Urgency, string> = {
@@ -41,17 +54,29 @@ function badgeText(days: number): string {
   return `${days} days left`;
 }
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+function whenChecked(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
+}
+
+/** Where to look up today's price: the saved link, or a search. */
+function lookupUrl(p: PurchaseRow): string {
+  if (p.product_url) return p.product_url;
+  const q = `${p.store_name} ${p.sku ?? ""} ${p.product_name}`.trim();
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
 
 export default async function DashboardPage(props: PageProps<"/dashboard">) {
-  const { added } = await props.searchParams;
+  const { added, error: actionError } = await props.searchParams;
 
-  if (!isSupabaseConfigured) {
-    return <SetupNotice />;
-  }
+  if (!isSupabaseConfigured) return <SetupNotice />;
 
   const supabase = await createClient();
   const {
@@ -62,7 +87,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
   const { data, error } = await supabase
     .from("purchases")
     .select(
-      "id, store_id, store_name, product_name, product_url, order_number, price_paid, purchase_date, window_days",
+      "id, store_id, store_name, product_name, product_url, order_number, sku, price_paid, purchase_date, window_days, status, last_price, last_checked_at, last_check_status, last_check_source, claimed_amount",
     )
     .order("purchase_date", { ascending: false });
 
@@ -70,15 +95,23 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
     .map((p) => {
       const deadline = claimDeadline(p.purchase_date, p.window_days);
       const days = daysLeft(deadline);
-      return { ...p, deadline, days, level: urgency(days) };
+      const claimed = p.status === "claimed";
+      const drop =
+        !claimed && p.last_price !== null && Number(p.last_price) < Number(p.price_paid)
+          ? Number(p.price_paid) - Number(p.last_price)
+          : 0;
+      return { ...p, deadline, days, claimed, drop, level: urgency(days) };
     })
-    // Open deadlines first (soonest at the top), closed ones at the bottom.
+    // Money to claim first, then open windows (soonest first), then the rest.
     .sort((a, b) => {
-      if ((a.days < 0) !== (b.days < 0)) return a.days < 0 ? 1 : -1;
-      return a.days < 0 ? b.days - a.days : a.days - b.days;
+      const rank = (x: typeof a) => (x.claimed || x.days < 0 ? 2 : x.drop > 0 ? 0 : 1);
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return rank(a) === 2 ? b.days - a.days : a.days - b.days;
     });
 
-  const openCount = purchases.filter((p) => p.days >= 0).length;
+  const openCount = purchases.filter((p) => p.days >= 0 && !p.claimed).length;
+  const toClaim = purchases.filter((p) => p.drop > 0 && p.days >= 0);
+  const saved = purchases.reduce((sum, p) => sum + (p.claimed ? Number(p.claimed_amount ?? 0) : 0), 0);
 
   return (
     <div>
@@ -92,18 +125,40 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/scan" className="btn">
-            Scan a receipt
-          </Link>
-          <Link href="/add" className="btn-ghost">
-            Type it in
-          </Link>
+          <Link href="/scan" className="btn">Scan a receipt</Link>
+          <Link href="/add" className="btn-ghost">Type it in</Link>
         </div>
       </div>
 
+      {(saved > 0 || toClaim.length > 0) && (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {toClaim.length > 0 && (
+            <div className="rounded-xl border-2 border-refund bg-refund-soft p-4">
+              <p className="text-sm font-semibold text-refund">Ready to claim</p>
+              <p className="font-display text-3xl font-extrabold">
+                {money.format(toClaim.reduce((s, p) => s + p.drop, 0))}
+              </p>
+              <p className="text-sm text-ink-soft">
+                on {toClaim.length} purchase{toClaim.length === 1 ? "" : "s"}
+              </p>
+            </div>
+          )}
+          {saved > 0 && (
+            <div className="rounded-xl border-2 border-ink bg-sticker p-4">
+              <p className="text-sm font-semibold">Money you&apos;ve got back</p>
+              <p className="font-display text-3xl font-extrabold">{money.format(saved)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-6">
         <Message
-          error={error ? `Could not load purchases: ${error.message}` : undefined}
+          error={
+            error
+              ? `Could not load purchases: ${error.message}`
+              : (Array.isArray(actionError) ? actionError[0] : actionError)
+          }
           info={
             added
               ? Number(added) > 1
@@ -121,33 +176,22 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
             Add something you bought in the last few weeks. Its refund window may still be open.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Link href="/scan" className="btn">
-              Scan a receipt
-            </Link>
-            <Link href="/add" className="btn-ghost">
-              Type it in
-            </Link>
+            <Link href="/scan" className="btn">Scan a receipt</Link>
+            <Link href="/add" className="btn-ghost">Type it in</Link>
           </div>
         </div>
       ) : (
         <ul className="space-y-6">
           {purchases.map((p) => {
             const store = getStore(p.store_id);
+            const open = p.days >= 0 && !p.claimed;
             return (
-              <li
-                key={p.id}
-                className="receipt p-5"
-              >
+              <li key={p.id} id={`p-${p.id}`} className="receipt scroll-mt-6 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-semibold">
                       {p.product_url ? (
-                        <a
-                          href={p.product_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:underline"
-                        >
+                        <a href={p.product_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                           {p.product_name}
                         </a>
                       ) : (
@@ -155,24 +199,105 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                       )}
                     </p>
                     <p className="mt-1 font-receipt text-sm text-ink-soft">
-                      {p.store_name} · {money.format(Number(p.price_paid))} ·
-                      bought {formatDate(p.purchase_date)}
+                      {p.store_name} · paid {money.format(Number(p.price_paid))} · bought{" "}
+                      {formatDate(p.purchase_date)}
                       {p.order_number ? ` · #${p.order_number}` : ""}
                     </p>
                   </div>
-                  <span
-                    className={`tag text-sm ${BADGE[p.level]}`}
-                  >
-                    {badgeText(p.days)}
-                  </span>
+                  {p.claimed ? (
+                    <span className="tag text-sm bg-refund text-paper">
+                      Got back {money.format(Number(p.claimed_amount ?? 0))}
+                    </span>
+                  ) : (
+                    <span className={`tag text-sm ${BADGE[p.level]}`}>{badgeText(p.days)}</span>
+                  )}
                 </div>
+
+                {/* Money to claim */}
+                {open && p.drop > 0 && (
+                  <div className="mt-4 rounded-lg border-2 border-refund bg-refund-soft p-4">
+                    <p className="font-display text-2xl font-extrabold text-refund">
+                      Claim {money.format(p.drop)}
+                    </p>
+                    <p className="mt-1 text-ink">
+                      The price is now <strong>{money.format(Number(p.last_price))}</strong>
+                      {p.last_checked_at ? ` (checked ${whenChecked(p.last_checked_at)})` : ""}. Ask{" "}
+                      {p.store_name} for the difference by <strong>{formatDate(p.deadline)}</strong>.{" "}
+                      {store.howToClaim}
+                    </p>
+                    <form action={markClaimed} className="mt-3 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="id" value={p.id} />
+                      <div>
+                        <label htmlFor={`amt-${p.id}`} className="label">Amount refunded ($)</label>
+                        <input
+                          id={`amt-${p.id}`}
+                          name="amount"
+                          inputMode="decimal"
+                          defaultValue={p.drop.toFixed(2)}
+                          className="input w-32 font-receipt"
+                        />
+                      </div>
+                      <button className="btn">I got my money back</button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Price status and one-tap check */}
+                {open && (
+                  <div className="mt-4 space-y-3 text-sm">
+                    <PriceStatus p={p} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a href={lookupUrl(p)} target="_blank" rel="noopener noreferrer" className="btn-ghost px-3 py-1.5 text-sm">
+                        Check today&apos;s price
+                      </a>
+                      <form action={reportPrice} className="flex items-center gap-1">
+                        <input type="hidden" name="id" value={p.id} />
+                        <label htmlFor={`price-${p.id}`} className="sr-only">Today&apos;s price</label>
+                        <span className="font-receipt">$</span>
+                        <input
+                          id={`price-${p.id}`}
+                          name="price"
+                          inputMode="decimal"
+                          placeholder="Today's price"
+                          className="input w-32 py-1.5 font-receipt text-sm"
+                        />
+                        <button className="btn px-3 py-1.5 text-sm">Save price</button>
+                      </form>
+                      <form action={markNoDrop}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button className="font-semibold text-ink underline">No drop today</button>
+                      </form>
+                    </div>
+                    {!p.product_url && (
+                      <details>
+                        <summary className="cursor-pointer font-semibold text-ink-soft">
+                          Add the product link so we can check the price for you
+                        </summary>
+                        <form action={setProductUrl} className="mt-2 flex flex-wrap gap-2">
+                          <input type="hidden" name="id" value={p.id} />
+                          <label htmlFor={`url-${p.id}`} className="sr-only">Product link</label>
+                          <input
+                            id={`url-${p.id}`}
+                            name="product_url"
+                            type="url"
+                            placeholder="https://www.costco.com/..."
+                            className="input max-w-md py-1.5 text-sm"
+                          />
+                          <button className="btn-ghost px-3 py-1.5 text-sm">Save link</button>
+                        </form>
+                      </details>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t-2 border-dashed border-ink/20 pt-3 text-sm">
                   <p className="text-ink">
-                    {p.days >= 0 ? (
+                    {p.claimed ? (
+                      <>Refund claimed. Nice work.</>
+                    ) : p.days >= 0 ? (
                       <>
                         Claim by <strong>{formatDate(p.deadline)}</strong>.{" "}
-                        {store.howToClaim}
+                        {p.drop > 0 ? "" : store.howToClaim}
                       </>
                     ) : (
                       <>Window closed on {formatDate(p.deadline)}.</>
@@ -180,9 +305,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                   </p>
                   <form action={deletePurchase}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="font-semibold text-ink-soft hover:text-markdown hover:underline">
-                      Remove
-                    </button>
+                    <button className="font-semibold text-ink-soft hover:text-markdown hover:underline">Remove</button>
                   </form>
                 </div>
               </li>
@@ -191,5 +314,37 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
         </ul>
       )}
     </div>
+  );
+}
+
+function PriceStatus({ p }: { p: PurchaseRow & { drop: number } }) {
+  if (p.drop > 0) return null; // the green box already says it
+  const by = p.last_check_source === "user" ? "You checked" : "We checked";
+  if (p.last_checked_at && p.last_check_status === "ok" && p.last_price !== null) {
+    return (
+      <p className="text-ink">
+        {by} {whenChecked(p.last_checked_at)}: {money.format(Number(p.last_price))}, no drop yet.
+      </p>
+    );
+  }
+  if (p.last_checked_at && p.last_check_status === "no_drop") {
+    return <p className="text-ink">You checked {whenChecked(p.last_checked_at)}: no drop yet.</p>;
+  }
+  if (p.product_url && !p.last_checked_at) {
+    return <p className="text-ink-soft">We&apos;ll try to check this price automatically within 6 hours.</p>;
+  }
+  if (!p.product_url) {
+    return (
+      <p className="text-ink-soft">
+        Tap &quot;Check today&apos;s price&quot; and save the price you see, or add the product
+        link below so we can try checking it for you.
+      </p>
+    );
+  }
+  return (
+    <p className="text-ink-soft">
+      {p.store_name} doesn&apos;t allow automatic price checks. Tap &quot;Check today&apos;s
+      price&quot;, then save the price you see.
+    </p>
   );
 }

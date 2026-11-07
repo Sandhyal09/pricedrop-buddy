@@ -1,0 +1,46 @@
+# Checks prices every 6 hours where stores allow it, and emails price drops.
+# Run by hand: GitHub → Actions → Price checks → Run workflow.
+
+name: Price checks
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: check prices and show emails in the log, without saving or sending"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: price-checks
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Check prices
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-prices.mts
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_URL: https://pricedrop-buddy.vercel.app
