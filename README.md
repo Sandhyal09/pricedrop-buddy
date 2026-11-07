@@ -197,6 +197,7 @@ Run [`supabase/updates/007_accounts.sql`](supabase/updates/007_accounts.sql) onc
 npm install
 cp .env.example .env.local   # then paste your values into .env.local
 npm run dev                  # open http://localhost:3000
+npm test                     # run the unit tests
 ```
 </details>
 
