@@ -16,6 +16,7 @@ Stores like Target, Best Buy, Home Depot and Costco refund the difference when a
 - **Reminder emails:** every morning, users get one email listing purchases whose claim window ends in 3 days, and again on the last day
 
 - **Price checking:** every 6 hours, a polite robot checks prices where stores allow it (it reads only the standard machine-readable price, respects robots.txt and never works around blocks). A price drop triggers an instant email: "Claim $40 before Nov 17." For stores that block robots (Target, Best Buy and Home Depot in our tests), the dashboard and emails offer a one-tap check: open the product page, type the price you see, and the app works out what you can claim.
+- **Community Price Radar:** when anyone reports a lower price for an item (same store, same item number), or the price checker finds one, every other shopper who bought that item and is still inside their claim window gets an alert. Reports are anonymous, limited per day, and shown as "check it yourself" until you confirm.
 - **Money tracker:** mark a claim as refunded and see the total money you've got back
 
 **Coming next:** Proof Pack, Claim Success Board, Before-You-Buy checker.
@@ -90,7 +91,11 @@ How it works: [`scripts/reminders-core.mts`](scripts/reminders-core.mts) picks p
 
 What we found when testing from GitHub's servers (Nov 2026): Costco.com allowed it; Target showed a robot check, Home Depot returned 403, and Best Buy timed out. Run **Actions → Price check test** to test again.
 
-### 6. Run it on your own computer (optional)
+### 6. Switch on Community Price Radar
+
+Run [`supabase/updates/006_community_radar.sql`](supabase/updates/006_community_radar.sql) once. The hourly job ([`.github/workflows/radar.yml`](.github/workflows/radar.yml), logic in [`scripts/radar.mts`](scripts/radar.mts)) uses the same GitHub secrets. Items are matched by store and item number ([`src/lib/item-key.ts`](src/lib/item-key.ts)).
+
+### 7. Run it on your own computer (optional)
 
 ```bash
 npm install

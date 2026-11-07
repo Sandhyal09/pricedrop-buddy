@@ -1,0 +1,47 @@
+# Community Price Radar: every hour, turns shoppers' price reports into
+# alerts for everyone else who bought the same item.
+# Run by hand: GitHub → Actions → Price Radar → Run workflow.
+
+name: Price Radar
+
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: show matches and emails in the log, without saving or sending"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: price-radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Match reports and alert shoppers
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/radar.mts
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_URL: https://pricedrop-buddy.vercel.app

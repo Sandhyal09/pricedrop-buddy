@@ -39,7 +39,23 @@ type PurchaseRow = {
   last_check_status: string | null;
   last_check_source: string | null;
   claimed_amount: number | null;
+  item_key: string | null;
 };
+
+/** The moment `hours` ago, as an ISO timestamp. */
+function hoursBackIso(hours: number): string {
+  return new Date(Date.now() - hours * 3600_000).toISOString();
+}
+
+type Spotted = { price: number; reported_at: string; source: string };
+
+function ago(iso: string): string {
+  const h = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 3600_000));
+  if (h < 1) return "less than an hour ago";
+  if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}
 
 const BADGE: Record<Urgency, string> = {
   open: "tag-open",
@@ -87,7 +103,7 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
   const { data, error } = await supabase
     .from("purchases")
     .select(
-      "id, store_id, store_name, product_name, product_url, order_number, sku, price_paid, purchase_date, window_days, status, last_price, last_checked_at, last_check_status, last_check_source, claimed_amount",
+      "id, store_id, store_name, product_name, product_url, order_number, sku, price_paid, purchase_date, window_days, status, last_price, last_checked_at, last_check_status, last_check_source, claimed_amount, item_key",
     )
     .order("purchase_date", { ascending: false });
 
@@ -108,6 +124,27 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
       if (rank(a) !== rank(b)) return rank(a) - rank(b);
       return rank(a) === 2 ? b.days - a.days : a.days - b.days;
     });
+
+  // Community Price Radar: lowest price reported for each item in the last 48 hours.
+  const keys = [
+    ...new Set(
+      purchases.filter((p) => p.item_key && p.days >= 0 && !p.claimed).map((p) => p.item_key as string),
+    ),
+  ];
+  const spotted = new Map<string, Spotted>();
+  if (keys.length > 0) {
+    const { data: reports } = await supabase
+      .from("price_reports")
+      .select("item_key, price, source, reported_at")
+      .in("item_key", keys)
+      .gte("reported_at", hoursBackIso(48))
+      .order("price", { ascending: true });
+    for (const r of reports ?? []) {
+      if (!spotted.has(r.item_key)) {
+        spotted.set(r.item_key, { price: Number(r.price), reported_at: r.reported_at, source: r.source });
+      }
+    }
+  }
 
   const openCount = purchases.filter((p) => p.days >= 0 && !p.claimed).length;
   const toClaim = purchases.filter((p) => p.drop > 0 && p.days >= 0);
@@ -241,6 +278,35 @@ export default async function DashboardPage(props: PageProps<"/dashboard">) {
                     </form>
                   </div>
                 )}
+
+                {/* Community Price Radar */}
+                {open && p.item_key && (() => {
+                  const s = spotted.get(p.item_key);
+                  if (!s || s.price >= Number(p.price_paid)) return null;
+                  if (p.last_price !== null && Number(p.last_price) <= s.price) return null;
+                  return (
+                    <div className="mt-4 rounded-lg border-2 border-dashed border-ink bg-sticker-soft p-4">
+                      <p className="font-semibold">
+                        Price Radar: {s.source === "auto" ? "our price checker" : "a PriceDrop Buddy shopper"} saw
+                        this for <strong>{money.format(s.price)}</strong> {ago(s.reported_at)}.
+                      </p>
+                      <p className="mt-1 text-sm text-ink-soft">
+                        That&apos;s up to {money.format(Number(p.price_paid) - s.price)} back. Check the price
+                        yourself (it can vary by location), then confirm it.
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <a href={lookupUrl(p)} target="_blank" rel="noopener noreferrer" className="btn-ghost px-3 py-1.5 text-sm">
+                          Check the price
+                        </a>
+                        <form action={reportPrice}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="price" value={s.price.toFixed(2)} />
+                          <button className="btn px-3 py-1.5 text-sm">I see {money.format(s.price)} too</button>
+                        </form>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Price status and one-tap check */}
                 {open && (

@@ -282,3 +282,125 @@ export function buildDropEmail(items: DropItem[], siteUrl: string): Email {
 
   return { subject, text, html };
 }
+
+// ---------- Community Price Radar ----------
+
+export type RadarItem = PurchaseForReminder & {
+  deadline: string;
+  days: number;
+  spottedPrice: number;
+  spottedAt: string;
+  spottedBy: "auto" | "user";
+};
+
+/** Picks the lowest recent report per item that beats what each shopper paid. */
+export function matchRadar<P extends PurchaseForReminder & { item_key: string | null; community_alerted_price: number | null }>(
+  purchases: (P & { deadline: string; days: number })[],
+  reports: { item_key: string; price: number; source: "auto" | "user"; reported_at: string; reporter_id: string | null }[],
+): RadarItem[] {
+  const lowest = new Map<string, (typeof reports)[number][]>();
+  for (const r of reports) {
+    const list = lowest.get(r.item_key) ?? [];
+    list.push(r);
+    lowest.set(r.item_key, list);
+  }
+  const out: RadarItem[] = [];
+  for (const p of purchases) {
+    if (!p.item_key || p.status !== "tracking" || p.days < 0) continue;
+    // Ignore reports this shopper made themselves: they already know.
+    const candidates = (lowest.get(p.item_key) ?? [])
+      .filter((r) => r.reporter_id !== p.user_id)
+      .sort((a, b) => Number(a.price) - Number(b.price));
+    const best = candidates[0];
+    if (!best) continue;
+    const price = Number(best.price);
+    if (price >= Number(p.price_paid)) continue;
+    if (p.community_alerted_price !== null && price >= Number(p.community_alerted_price)) continue;
+    out.push({ ...p, spottedPrice: price, spottedAt: best.reported_at, spottedBy: best.source });
+  }
+  return out;
+}
+
+function hoursAgo(iso: string, now = Date.now()): string {
+  const h = Math.max(0, Math.round((now - Date.parse(iso)) / 3600_000));
+  if (h < 1) return "less than an hour ago";
+  if (h === 1) return "1 hour ago";
+  if (h < 24) return `${h} hours ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}
+
+export function buildRadarEmail(items: RadarItem[], siteUrl: string, now = Date.now()): Email {
+  const first = items[0];
+  const subject =
+    items.length === 1
+      ? `Price Radar: ${first.product_name} spotted for ${money.format(first.spottedPrice)}`
+      : `Price Radar: lower prices spotted on ${items.length} of your purchases`;
+  const intro =
+    "The PriceDrop Buddy community spotted a lower price on something you bought. Check the price yourself before you claim: prices can change quickly or vary by location.";
+
+  const lines = items.map((i) => {
+    const who = i.spottedBy === "auto" ? "Our price checker" : "A PriceDrop Buddy shopper";
+    return {
+      i,
+      who,
+      saving: Number(i.price_paid) - i.spottedPrice,
+      when: hoursAgo(i.spottedAt, now),
+      store: getStore(i.store_id),
+    };
+  });
+
+  const text = [
+    "Hi,",
+    "",
+    intro,
+    "",
+    ...lines.map(({ i, who, saving, when, store }) =>
+      [
+        `- ${i.product_name} (${i.store_name})`,
+        `  ${who} saw ${money.format(i.spottedPrice)} ${when}. You paid ${money.format(Number(i.price_paid))}: up to ${money.format(saving)} back.`,
+        `  Claim by ${formatDate(i.deadline)} (${whenText(i.days)}). ${store.howToClaim}`,
+        i.product_url ? `  Check it: ${i.product_url}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    ),
+    "",
+    `Confirm the price on your dashboard: ${siteUrl}/dashboard`,
+    "",
+    "PriceDrop Buddy",
+  ].join("\n");
+
+  const rows = lines
+    .map(
+      ({ i, who, saving, when, store }) => `
+      <tr><td style="padding:16px;border-bottom:2px dashed #d6d5e6">
+        <div style="font-size:17px;font-weight:700;color:#1d1a4f">${escapeHtml(i.product_name)}</div>
+        <div style="margin-top:6px;font-size:14px;color:#4b4874">${escapeHtml(who)} saw it for
+          <b style="color:#0b7a4b">${money.format(i.spottedPrice)}</b> ${escapeHtml(when)} at ${escapeHtml(i.store_name)}.
+          You paid <s style="color:#e4252f">${money.format(Number(i.price_paid))}</s>.</div>
+        <div style="margin-top:10px;display:inline-block;padding:6px 12px;border:3px solid #0b7a4b;border-radius:999px;color:#0b7a4b;font-weight:800;font-size:16px">
+          Up to ${money.format(saving)} back
+        </div>
+        <div style="margin-top:10px;color:#1d1a4f">Claim by <b>${formatDate(i.deadline)}</b> (${whenText(i.days)}). ${escapeHtml(store.howToClaim)}</div>
+        ${i.product_url ? `<div style="margin-top:8px;font-size:14px"><a href="${escapeHtml(i.product_url)}" style="color:#1d1a4f;font-weight:700">Check the price</a></div>` : ""}
+      </td></tr>`,
+    )
+    .join("");
+
+  const html = `<!doctype html><html><body style="margin:0;background:#eef0fb;font-family:Arial,Helvetica,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef0fb;padding:24px 0"><tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
+      <tr><td style="background:#ffd60a;border:2px solid #1d1a4f;padding:14px 20px;font-weight:800;font-size:18px;color:#1d1a4f">PriceDrop Buddy · Price Radar</td></tr>
+      <tr><td style="background:#ffffff;padding:20px">
+        <p style="margin:0;font-size:22px;font-weight:800;color:#1d1a4f">${escapeHtml(subject)}</p>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.5;color:#4b4874">${escapeHtml(intro)}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px">${rows}</table>
+        <p style="margin:20px 0 0"><a href="${escapeHtml(siteUrl)}/dashboard" style="display:inline-block;background:#1d1a4f;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px">Confirm on my dashboard</a></p>
+      </td></tr>
+      <tr><td style="padding:14px 4px;font-size:12px;color:#4b4874">Shoppers' reports are anonymous. Store policies change: check with the store before you claim.</td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+
+  return { subject, text, html };
+}

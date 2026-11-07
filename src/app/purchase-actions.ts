@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { itemKey } from "@/lib/item-key";
+
+const MAX_REPORTS_PER_DAY = 30;
 
 function field(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -21,7 +24,7 @@ async function ownPurchase(id: string) {
   // Row level security means this only finds the user's own purchase.
   const { data } = await supabase
     .from("purchases")
-    .select("id, price_paid, last_price")
+    .select("id, store_id, sku, item_key, price_paid, last_price")
     .eq("id", id)
     .single();
   return { user, supabase, purchase: data };
@@ -37,6 +40,19 @@ export async function reportPrice(formData: FormData) {
     done("Enter today's price, like 259.99.", id);
 
   const rounded = Math.round(price * 100) / 100;
+
+  // Stop runaway or accidental reports.
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const { count } = await supabase
+    .from("price_checks")
+    .select("id", { count: "exact", head: true })
+    .eq("source", "user")
+    .gte("checked_at", since);
+  if ((count ?? 0) >= MAX_REPORTS_PER_DAY)
+    done("You've saved a lot of prices today. Try again tomorrow.", id);
+  if (rounded < Number(purchase.price_paid) * 0.2)
+    done("That price looks too low. Check the number and try again.", id);
+
   await supabase
     .from("purchases")
     .update({
@@ -53,6 +69,15 @@ export async function reportPrice(formData: FormData) {
     status: "ok",
     source: "user",
   });
+  // Share it with the Community Price Radar (the reporter stays anonymous).
+  if (purchase.item_key) {
+    await supabase.from("price_reports").insert({
+      store_id: purchase.store_id,
+      item_key: purchase.item_key,
+      price: rounded,
+      source: "user",
+    });
+  }
   done(undefined, id);
 }
 
@@ -109,7 +134,12 @@ export async function setProductUrl(formData: FormData) {
   }
   await supabase
     .from("purchases")
-    .update({ product_url: url.slice(0, 2000), last_checked_at: null, last_check_status: null })
+    .update({
+      product_url: url.slice(0, 2000),
+      item_key: itemKey(purchase.store_id, url, purchase.sku),
+      last_checked_at: null,
+      last_check_status: null,
+    })
     .eq("id", id);
   done(undefined, id);
 }

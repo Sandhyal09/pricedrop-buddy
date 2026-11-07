@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { parseReceipt, type ParsedReceipt } from "@/lib/receipt-parser";
 import { getStore, STORES, todayString } from "@/lib/stores";
+import { itemKey } from "@/lib/item-key";
 
 const MAX_BYTES = 1024 * 1024; // OCR.space free plan: 1 MB per file
 
@@ -123,12 +124,14 @@ export async function saveScannedItems(
     if (!name) return { error: "Every ticked item needs a name." };
     if (!Number.isFinite(price) || price <= 0)
       return { error: `Check the price for "${name}". It should look like 19.99.` };
+    const sku = String(item.sku ?? "").trim().slice(0, 40) || null;
     rows.push({
       user_id: user.id,
       store_id: store.id,
       store_name: store.id === "other" && customStore ? customStore : store.name,
       product_name: name,
-      sku: String(item.sku ?? "").trim().slice(0, 40) || null,
+      sku,
+      item_key: itemKey(store.id, null, sku),
       order_number: orderNumber || null,
       price_paid: Math.round(price * 100) / 100,
       purchase_date: purchaseDate,

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { getStore, STORES } from "@/lib/stores";
+import { itemKey } from "@/lib/item-key";
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -128,6 +129,7 @@ export async function addPurchase(formData: FormData) {
     store_name: store.id === "other" && customStore ? customStore : store.name,
     product_name: productName,
     product_url: productUrl || null,
+    item_key: itemKey(store.id, productUrl || null, null),
     order_number: orderNumber || null,
     price_paid: Math.round(price * 100) / 100,
     purchase_date: purchaseDate,

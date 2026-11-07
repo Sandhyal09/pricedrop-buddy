@@ -11,7 +11,7 @@ import { checkPrice, type CheckResult } from "../src/lib/price-check.ts";
 import { dryRun, emailFor, send, siteUrl, supabase } from "./common.mts";
 import { buildDropEmail, type DropItem, type PurchaseForReminder } from "./reminders-core.mts";
 
-type Row = PurchaseForReminder & { drop_alerted_price: number | null };
+type Row = PurchaseForReminder & { drop_alerted_price: number | null; item_key: string | null };
 
 const MIN_HOURS_BETWEEN_CHECKS = 5;
 const MAX_CHECKS_PER_RUN = 300;
@@ -24,7 +24,7 @@ const since = new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10)
 const { data, error } = await supabase
   .from("purchases")
   .select(
-    "id, user_id, store_id, store_name, product_name, product_url, price_paid, purchase_date, window_days, status, reminded_3d, reminded_1d, last_price, last_checked_at, last_check_status, drop_alerted_price",
+    "id, user_id, store_id, store_name, product_name, product_url, price_paid, purchase_date, window_days, status, reminded_3d, reminded_1d, last_price, last_checked_at, last_check_status, drop_alerted_price, item_key",
   )
   .eq("status", "tracking")
   .not("product_url", "is", null)
@@ -88,6 +88,16 @@ for (const p of toCheck) {
       status: result.status,
       source: "auto",
     });
+    // Share robot-checked prices with the Community Price Radar.
+    if (result.status === "ok" && result.price !== null && p.item_key) {
+      await supabase.from("price_reports").insert({
+        store_id: p.store_id,
+        item_key: p.item_key,
+        price: result.price,
+        source: "auto",
+        reporter_id: null,
+      });
+    }
   }
 
   if (isDrop && lowerThanLastAlert) {
