@@ -44,6 +44,7 @@ export function ReceiptScanner() {
   const [stage, setStage] = useState<"pick" | "reading" | "review">("pick");
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<ParsedReceipt | null>(null);
+  const [method, setMethod] = useState<"ai" | "rules">("rules");
   const [rows, setRows] = useState<Row[]>([]);
 
   async function handleFile(file: File | undefined) {
@@ -79,6 +80,7 @@ export function ReceiptScanner() {
       if (!result.ok) throw new Error(result.error);
 
       setReceipt(result.receipt);
+      setMethod(result.method);
       setRows(
         result.receipt.items.map((item, i) => ({
           id: i,
@@ -101,6 +103,7 @@ export function ReceiptScanner() {
     return (
       <ReviewForm
         receipt={receipt}
+        method={method}
         rows={rows}
         setRows={setRows}
         onStartOver={() => {
@@ -155,11 +158,13 @@ export function ReceiptScanner() {
 
 function ReviewForm({
   receipt,
+  method,
   rows,
   setRows,
   onStartOver,
 }: {
   receipt: ParsedReceipt;
+  method: "ai" | "rules";
   rows: Row[];
   setRows: React.Dispatch<React.SetStateAction<Row[]>>;
   onStartOver: () => void;
@@ -183,6 +188,12 @@ function ReviewForm({
           Receipts are hard to read, so fix anything that looks wrong and
           untick items you don&apos;t want to track.
         </p>
+        {method === "ai" && (
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-sticker-soft px-3 py-1 text-sm font-semibold">
+            <span aria-hidden="true">✦</span>
+            Read with AI. Every price and item number was checked against your receipt.
+          </p>
+        )}
       </div>
 
       {state.error && (

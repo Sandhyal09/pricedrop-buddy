@@ -4,17 +4,19 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { parseReceipt, type ParsedReceipt } from "@/lib/receipt-parser";
+import { aiConfigFromEnv, readReceiptText } from "@/lib/ai-receipt";
 import { getStore, STORES, todayString } from "@/lib/stores";
 import { itemKey } from "@/lib/item-key";
 
 const MAX_BYTES = 1024 * 1024; // OCR.space free plan: 1 MB per file
 
 export type ReadResult =
-  | { ok: true; receipt: ParsedReceipt }
+  | { ok: true; receipt: ParsedReceipt; method: "ai" | "rules" }
   | { ok: false; error: string };
 
-// Sends the photo to OCR.space, then turns the text into receipt details.
-// The photo itself is never stored.
+// Sends the photo to OCR.space, then turns the text into receipt details:
+// with AI when AI_API_KEY is set (checked, with the rules as a backup),
+// otherwise with the rules. The photo itself is never stored.
 export async function readReceipt(formData: FormData): Promise<ReadResult> {
   const user = await getUser();
   if (!user) return { ok: false, error: "Log in again to scan receipts." };
@@ -77,7 +79,17 @@ export async function readReceipt(formData: FormData): Promise<ReadResult> {
     return { ok: false, error: "No text was found. Make sure the whole receipt is in the photo and in focus." };
   }
 
-  return { ok: true, receipt: parseReceipt(text, todayString()) };
+  const result = await readReceiptText(
+    text,
+    todayString(),
+    aiConfigFromEnv(process.env),
+    parseReceipt,
+  );
+  // Log what happened, never the receipt's contents.
+  if (result.fallbackReason) console.warn("AI receipt reading failed, used rules:", result.fallbackReason);
+  if (result.dropped.length) console.info(`AI receipt checks removed ${result.dropped.length} value(s).`);
+
+  return { ok: true, receipt: result.receipt, method: result.method };
 }
 
 // ---------- Saving the items the user confirmed ----------

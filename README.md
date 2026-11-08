@@ -27,7 +27,7 @@ PriceDrop Buddy keeps the receipts, watches the prices, counts down every deadli
 
 | Feature | What it does |
 | --- | --- |
-| **Scan any receipt** | Photograph a paper receipt or upload an order confirmation. OCR plus a rule-based parser pulls out the store, date, order number and every item, then a review screen lets you fix anything before saving. Photos are never stored. |
+| **Scan any receipt** | Photograph a paper receipt or upload an order confirmation. OCR reads the text, then an [AI reader with safety checks](#ai-receipt-reading) (or the rule-based parser as a backup) pulls out the store, date, order number and every item. A review screen lets you fix anything before saving. Photos are never stored. |
 | **Deadline countdown** | Each purchase gets its store's claim window, a days-left badge that turns red at 3 days, and store-specific steps to claim. |
 | **Automatic price checks** | Every 6 hours a polite bot reads the price where stores allow it. A drop triggers an email: *"Claim $70 before Nov 13."* |
 | **One-tap checks** | Where stores block bots, one button opens the product page; type the price you see and the app works out what you can claim. |
@@ -72,6 +72,33 @@ flowchart LR
 - **Scheduled jobs** ([`scripts`](scripts), [`.github/workflows`](.github/workflows)): small TypeScript programs that run on GitHub's servers for free. They are the only code holding the database's secret key.
 - **Database** ([`supabase/schema.sql`](supabase/schema.sql)): purchases, price history, shared price reports and profiles, each locked down with policies and explicit grants.
 
+## AI receipt reading
+
+```mermaid
+flowchart LR
+    photo["Receipt photo"] --> ocr["OCR.space<br/>photo to text"]
+    ocr --> llm["Language model<br/>strict JSON schema"]
+    llm --> checks{"Checks:<br/>is every price, SKU and<br/>order number in the text?"}
+    checks -- "keep what's supported" --> review["Review screen"]
+    llm -. "off, slow, rate-limited<br/>or invalid reply" .-> rules["Rule-based parser"] --> review
+```
+
+The rule-based parser handles tidy receipts but misses order emails, multi-buys ("2 @ $4.29"), names split across lines and garbled store names. So scanning now goes through a language model first ([`src/lib/ai-receipt.ts`](src/lib/ai-receipt.ts)):
+
+- **Text in, structured data out.** Only the OCR text is sent, never the photo. The model must answer in a strict JSON schema (constrained decoding), at temperature 0, with the labelling rules written into the prompt. The receipt text is marked as data so instructions hidden in it are ignored.
+- **Nothing made up gets through.** Every price must appear in the receipt text, every SKU and order number too; dates must be real, not in the future and not years old. Anything that fails is dropped before the user sees it.
+- **It can't break scanning.** No key, a timeout (15 s), a rate limit, an error or a malformed reply all fall back to the rules, and the user still reviews everything before saving.
+- **Any OpenAI-compatible API.** The default is Groq's free plan (`openai/gpt-oss-20b`), chosen because Groq says it doesn't train on API data or keep it by default. Google's free Gemini tier was ruled out because it uses free-tier content to improve Google's products.
+- **Measured, not guessed.** [`npm run eval`](scripts/eval-receipts.mts) scores both readers on [30 labelled receipts](tests/fixtures/receipts.mts) written to include the hard cases above, a receipt from an unsupported store and a photo that isn't a receipt at all. A unit test proves the checks keep every correct answer in that set.
+
+Rule-based baseline on the test set ([full report](docs/receipt-eval.md)):
+
+| Receipts fully right | Item precision | Item recall | Item F1 |
+| --- | --- | --- | --- |
+| 40% | 83% | 69% | 0.75 |
+
+AI scores are added once the reader runs against the live model (Actions → *Receipt reader score*).
+
 ## Engineering notes
 
 **I measured before I built.** The first plan was "check every store's price automatically". So I ran a probe from GitHub's servers against real product pages: Costco returned a price, Target served a robot check, Home Depot returned 403 and Best Buy timed out. Rather than scraping around those blocks, the bot only reads the standard machine-readable price (schema.org JSON-LD and meta tags), obeys `robots.txt`, identifies itself honestly, and backs off from blocked sites. The product then grew two features to cover the gap: one-tap checks and the crowd-powered Price Radar.
@@ -89,7 +116,8 @@ flowchart LR
 ## Tests
 
 ```bash
-npm test          # about 80 checks: deadlines, receipt parser, price reader, item keys, reminders, Radar matching
+npm test          # unit tests: deadlines, receipt parser, AI reader checks, scoring, price reader, item keys, reminders, Radar
+npm run eval      # score the receipt readers on 30 labelled receipts
 npm run lint
 npm run typecheck
 ```
@@ -100,18 +128,18 @@ The [Checks workflow](.github/workflows/ci.yml) runs all of these plus a product
 
 ```
 src/app/            pages, Server Actions, account settings, privacy page
-src/lib/            store rules, receipt parser, price reader, item keys
+src/lib/            store rules, receipt parser, AI receipt reader, scoring, price reader, item keys
 src/components/     header, forms, receipt scanner
 scripts/            scheduled jobs: reminders, price checks, Price Radar
 supabase/           full schema plus numbered updates
-tests/              unit tests (npm test)
+tests/              unit tests (npm test) and the labelled receipt set
 .github/workflows/  scheduled jobs and the Checks workflow
 ```
 
 ## Roadmap
 
 - **Proof Pack:** a one-page PDF with the receipt line, today's price and the store's policy, ready to show at the counter.
-- **Smarter receipt reading:** use an AI model to read receipts the rule-based parser misses.
+- **Publish the AI scores** and grow the receipt test set with real, anonymised receipts.
 - **Claim Success Board:** which stores actually paid out, and how fast.
 
 ## Supported stores
@@ -191,7 +219,17 @@ Run [`supabase/updates/006_community_radar.sql`](supabase/updates/006_community_
 
 Run [`supabase/updates/007_accounts.sql`](supabase/updates/007_accounts.sql) once. It adds the `profiles` table (filled in automatically for each new sign-up) and a `delete_my_account()` database function that can only delete the logged-in user. The last line should show `true`.
 
-### 8. Run it on your own computer (optional)
+### 8. Switch on AI receipt reading (optional)
+
+Scanning works without this; the rule-based parser is used instead.
+
+1. Make a free account at [console.groq.com](https://console.groq.com) (no card needed). Go to **API Keys**, click **Create API Key** and copy it.
+2. Optional but recommended: in Groq, open **Settings → Data Controls** and turn on **Zero Data Retention**.
+3. In Vercel: **Settings → Environment Variables**, add `AI_API_KEY` with the key, then redeploy. Scanned receipts now show "Read with AI".
+4. In GitHub: **Settings → Secrets and variables → Actions → New repository secret**, add `AI_API_KEY`.
+5. In GitHub: **Actions → Receipt reader score → Run workflow**. The run's Summary page shows rules and AI side by side.
+
+### 9. Run it on your own computer (optional)
 
 ```bash
 npm install

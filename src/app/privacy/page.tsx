@@ -17,6 +17,7 @@ const HELPERS = [
   ["GitHub Actions", "runs the scheduled jobs that check prices and send reminders."],
   ["Gmail", "sends the reminder and price-drop emails."],
   ["OCR.space", "reads the text on a receipt photo when you scan one. We don't keep the photo."],
+  ["Groq", "when AI reading is switched on, picks out the items from that text (never the photo). Groq says it doesn't train on it or keep it by default."],
 ];
 
 export default function PrivacyPage() {
